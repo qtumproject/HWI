@@ -29,15 +29,18 @@ class HardwareWalletClient(object):
 
         Return {"xpub": <xpub string>}.
         """
-        # FIXME testnet is not handled yet
-        return self.get_pubkey_at_path("m/44h/88h/0h")
+        if self.is_testnet:
+            return self.get_pubkey_at_path("m/44h/1h/0h")
+        else:
+            return self.get_pubkey_at_path("m/44h/88h/0h")
 
     def get_master_fingerprint_hex(self) -> str:
         """Return the master public key fingerprint as hex-string.
 
-        Retrieve the master public key at the "m/44h/88h/0h" derivation path.
+        Retrieve the master public key at the "m/0h/45342h" derivation path.
+        The derivation "m/0h/45342h" is present in both Qtum and Qtum Test ledger applications.
         """
-        master_xpub = self.get_pubkey_at_path("m/44h/88h/0h")["xpub"]
+        master_xpub = self.get_pubkey_at_path("m/0h/45342h/0h")["xpub"]
         return get_xpub_fingerprint_hex(master_xpub)
 
     def get_pubkey_at_path(self, bip32_path: str) -> Dict[str, str]:

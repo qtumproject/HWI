@@ -35,6 +35,7 @@ import getpass
 import logging
 import json
 import sys
+import base64
 
 def backup_device_handler(args, client):
     return backup_device(client, label=args.label, backup_passphrase=args.backup_passphrase)
@@ -69,6 +70,10 @@ def setup_device_handler(args, client):
 
 def signmessage_handler(args, client):
     return signmessage(client, message=args.message, path=args.path)
+
+def signheader_handler(args, client):
+    messagebyte=base64.b64decode(args.message)
+    return signmessage(client, message=messagebyte, path=args.path)
 
 def signtx_handler(args, client):
     return signtx(client, psbt=args.psbt)
@@ -136,7 +141,7 @@ def process_commands(cli_args):
     enumerate_parser = subparsers.add_parser('enumerate', help='List all available devices')
     enumerate_parser.set_defaults(func=enumerate_handler)
 
-    getmasterxpub_parser = subparsers.add_parser('getmasterxpub', help='Get the extended public key at m/44\'/88\'/0\'')
+    getmasterxpub_parser = subparsers.add_parser('getmasterxpub', help='Get the extended public key at m/44\'/1\'/0\'')
     getmasterxpub_parser.set_defaults(func=getmasterxpub_handler)
 
     signtx_parser = subparsers.add_parser('signtx', help='Sign a PSBT')
@@ -151,6 +156,11 @@ def process_commands(cli_args):
     signmsg_parser.add_argument('message', help='The message to sign')
     signmsg_parser.add_argument('path', help='The BIP 32 derivation path of the key to sign the message with')
     signmsg_parser.set_defaults(func=signmessage_handler)
+
+    signmsg_parser = subparsers.add_parser('signheader', help='Sign a block header')
+    signmsg_parser.add_argument('message', help='The header to sign')
+    signmsg_parser.add_argument('path', help='The BIP 32 derivation path of the key to sign the message with')
+    signmsg_parser.set_defaults(func=signheader_handler)
 
     getkeypool_parser = subparsers.add_parser('getkeypool', help='Get JSON array of keys that can be imported to Bitcoin Core with importmulti')
     kparg_group = getkeypool_parser.add_mutually_exclusive_group()
