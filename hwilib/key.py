@@ -381,5 +381,4 @@ def get_bip44_chain(chain: Chain) -> int:
     if chain == Chain.MAIN:
         return 88
     else:
-        # use 88' for testnet as well
-        return 88
+        return 1

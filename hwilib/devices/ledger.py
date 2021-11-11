@@ -194,7 +194,10 @@ class LedgerClient(HardwareWalletClient):
         tx_bytes = c_tx.serialize_with_witness()
 
         # Master key fingerprint
-        master_fpr = hash160(compress_public_key(self.app.getWalletPublicKey("44'/88'")["publicKey"]))[:4]
+        if self.chain == Chain.MAIN:
+            master_fpr = hash160(compress_public_key(self.app.getWalletPublicKey("44'/88'")["publicKey"]))[:4]
+        else:
+            master_fpr = hash160(compress_public_key(self.app.getWalletPublicKey("0'/45342'")["publicKey"]))[:4]
         # An entry per input, each with 0 to many keys to sign with
         all_signature_attempts: List[List[Tuple[str, bytes]]] = [[]] * len(c_tx.vin)
 

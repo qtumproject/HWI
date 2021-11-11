@@ -67,7 +67,9 @@ class HardwareWalletClient(object):
         Retrieve the master public key at the "m/44h/88h/0h" derivation path.
         :return: The fingerprint as bytes
         """
-        return self.get_pubkey_at_path("m/44h/88h/0h").parent_fingerprint
+        if self.chain == Chain.MAIN:
+            return self.get_pubkey_at_path("m/44h/88h/0h").parent_fingerprint
+        return self.get_pubkey_at_path("m/0h/45342h/0h").parent_fingerprint
 
     def get_pubkey_at_path(self, bip32_path: str) -> ExtendedKey:
         """
