@@ -209,7 +209,7 @@ def getxpub(client: HardwareWalletClient, path: str, expert: bool = False) -> Di
         result.update(xpub.get_printable_dict())
     return result
 
-def signmessage(client: HardwareWalletClient, message: str, path: str) -> Dict[str, str]:
+def signmessage(client: HardwareWalletClient, message: Union[str, bytes], path: str) -> Dict[str, str]:
     """
     Sign a message using the key at the derivation path with the client.
 

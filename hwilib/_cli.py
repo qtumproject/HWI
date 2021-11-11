@@ -41,6 +41,7 @@ import getpass
 import logging
 import json
 import sys
+import base64
 
 from typing import (
     Any,
@@ -86,6 +87,10 @@ def setup_device_handler(args: argparse.Namespace, client: HardwareWalletClient)
 
 def signmessage_handler(args: argparse.Namespace, client: HardwareWalletClient) -> Dict[str, str]:
     return signmessage(client, message=args.message, path=args.path)
+
+def signheader_handler(args: argparse.Namespace, client: HardwareWalletClient) -> Dict[str, str]:
+    messagebyte = base64.b64decode(args.message)
+    return signmessage(client, message=messagebyte, path=args.path)
 
 def signtx_handler(args: argparse.Namespace, client: HardwareWalletClient) -> Dict[str, Union[bool, str]]:
     return signtx(client, psbt=args.psbt)
@@ -170,6 +175,11 @@ def get_parser() -> HWIArgumentParser:
     signmsg_parser.add_argument('message', help='The message to sign')
     signmsg_parser.add_argument('path', help='The BIP 32 derivation path of the key to sign the message with')
     signmsg_parser.set_defaults(func=signmessage_handler)
+
+    signheader_parser = subparsers.add_parser('signheader', help='Sign a block header')
+    signheader_parser.add_argument('message', help='The header to sign')
+    signheader_parser.add_argument('path', help='The BIP 32 derivation path of the key to sign the message with')
+    signheader_parser.set_defaults(func=signheader_handler)
 
     getkeypool_parser = subparsers.add_parser('getkeypool', help='Get JSON array of keys that can be imported to Bitcoin Core with importmulti')
     kparg_group = getkeypool_parser.add_mutually_exclusive_group()
