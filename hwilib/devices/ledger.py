@@ -126,8 +126,8 @@ def ledger_exception(f: Callable[..., Any]) -> Any:
 # This class extends the HardwareWalletClient for Ledger Nano S and Nano X specific things
 class LedgerClient(HardwareWalletClient):
 
-    def __init__(self, path: str, password: str = "", expert: bool = False) -> None:
-        super(LedgerClient, self).__init__(path, password, expert)
+    def __init__(self, path: str, password: str = "", expert: bool = False, chain: Chain = Chain.MAIN) -> None:
+        super(LedgerClient, self).__init__(path, password, expert, chain)
 
         if path.startswith('tcp'):
             split_path = path.split(':')
@@ -464,7 +464,7 @@ class LedgerClient(HardwareWalletClient):
         """
         raise UnavailableActionError('The Ledger Nano S and X do not support toggling passphrase from the host')
 
-def enumerate(password: str = '') -> List[Dict[str, Any]]:
+def enumerate(password: str = '', chain: Chain = Chain.MAIN) -> List[Dict[str, Any]]:
     results = []
     devices = []
     devices.extend(hid.enumerate(LEDGER_VENDOR_ID, 0))
@@ -493,7 +493,7 @@ def enumerate(password: str = '') -> List[Dict[str, Any]]:
             client = None
             with handle_errors(common_err_msgs["enumerate"], d_data):
                 try:
-                    client = LedgerClient(path, password)
+                    client = LedgerClient(path, password, expert=False, chain=chain)
                     d_data['fingerprint'] = client.get_master_fingerprint().hex()
                     d_data['needs_pin_sent'] = False
                     d_data['needs_passphrase_sent'] = False
