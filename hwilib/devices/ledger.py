@@ -143,7 +143,7 @@ class LedgerClient(HardwareWalletClient):
 
         self.app = btchip(self.dongle)
 
-        if self.app.getAppName() not in ["Qtum", "Qtum Test", "Bitcoin", "Bitcoin Test", "app"]:
+        if self.app.getAppName() not in ["Qtum", "Qtum Test", "Qtum Stake", "Qtum Stake Test", "Bitcoin", "Bitcoin Test", "app"]:
             raise UnknownDeviceError("Ledger is not in either the Bitcoin or Bitcoin Testnet app")
 
     @ledger_exception
