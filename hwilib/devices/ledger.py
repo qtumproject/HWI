@@ -143,8 +143,12 @@ class LedgerClient(HardwareWalletClient):
 
         self.app = btchip(self.dongle)
 
-        if self.app.getAppName() not in ["Qtum", "Qtum Test", "Qtum Stake", "Qtum Stake Test", "Bitcoin", "Bitcoin Test", "app"]:
+    @ledger_exception
+    def get_app_name(self) -> str:
+        appName = self.app.getAppName()
+        if appName not in ["Qtum", "Qtum Test", "Qtum Stake", "Qtum Stake Test", "Bitcoin", "Bitcoin Test", "app"]:
             raise UnknownDeviceError("Ledger is not in either the Bitcoin or Bitcoin Testnet app")
+        return appName
 
     @ledger_exception
     def get_pubkey_at_path(self, path: str) -> ExtendedKey:
@@ -494,6 +498,7 @@ def enumerate(password: str = '', chain: Chain = Chain.MAIN) -> List[Dict[str, A
             with handle_errors(common_err_msgs["enumerate"], d_data):
                 try:
                     client = LedgerClient(path, password, expert=False, chain=chain)
+                    d_data['app_name'] = client.get_app_name()
                     d_data['fingerprint'] = client.get_master_fingerprint().hex()
                     d_data['needs_pin_sent'] = False
                     d_data['needs_passphrase_sent'] = False
