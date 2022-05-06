@@ -383,7 +383,7 @@ def getkeypool(
 
     addr_types = [addr_type]
     if addr_all:
-        addr_types = list(AddressType)
+        addr_types = [AddressType.LEGACY, AddressType.WIT, AddressType.SH_WIT]
     elif not supports_taproot and addr_type == AddressType.TAP:
         raise UnavailableActionError("Device does not support Taproot")
 
@@ -420,7 +420,7 @@ def getdescriptors(
 
     for internal in [False, True]:
         descriptors = []
-        for addr_type in list(AddressType):
+        for addr_type in [AddressType.LEGACY, AddressType.WIT, AddressType.SH_WIT]:
             try:
                 desc = getdescriptor(client, master_fpr=master_fpr, internal=internal, addr_type=addr_type, account=account)
             except UnavailableActionError:
