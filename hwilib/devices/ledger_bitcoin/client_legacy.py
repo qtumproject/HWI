@@ -354,9 +354,9 @@ class LegacyClient(Client):
 
     def get_master_fingerprint(self) -> bytes:
         if self.chain == Chain.MAIN:
-            master_pubkey = self.app.getWalletPublicKey("44'/88'/0'")
+            master_pubkey = self.app.getWalletPublicKey("44'/88'")
         else:
-            master_pubkey = self.app.getWalletPublicKey("0'/45342'/0'")
+            master_pubkey = self.app.getWalletPublicKey("0'/45342'")
         return hash160(compress_public_key(master_pubkey["publicKey"]))[:4]
 
     def sign_message(self, message: Union[str, bytes], keypath: str) -> str:
