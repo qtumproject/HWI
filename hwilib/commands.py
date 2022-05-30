@@ -71,7 +71,7 @@ py_enumerate = enumerate
 
 
 # Get the client for the device
-def get_client(device_type: str, device_path: str, password: str = "", expert: bool = False, chain: Chain = Chain.MAIN) -> Optional[HardwareWalletClient]:
+def get_client(device_type: str, device_path: str, password: str = "", expert: bool = False, chain: Chain = Chain.MAIN, model: str = "") -> Optional[HardwareWalletClient]:
     """
     Returns a HardwareWalletClient for the given device type at the device path
 
@@ -97,7 +97,7 @@ def get_client(device_type: str, device_path: str, password: str = "", expert: b
         if client:
             client.close()
         raise UnknownDeviceError('Unknown device type specified')
-
+    client.model = model
     return client
 
 # Get a list of all available hardware wallets
@@ -153,7 +153,7 @@ def find_device(
         try:
             assert isinstance(d["type"], str)
             assert isinstance(d["path"], str)
-            client = get_client(d['type'], d['path'], password, expert, chain)
+            client = get_client(d['type'], d['path'], password, expert, chain, d['model'])
             if client is None:
                 raise Exception()
 
@@ -417,10 +417,11 @@ def getdescriptors(
     master_fpr = client.get_master_fingerprint()
 
     result = {}
-
+    support_addr_types = [AddressType.LEGACY, AddressType.SH_WIT] if client.model == "ledger_nano_x" \
+        else [AddressType.LEGACY, AddressType.WIT, AddressType.SH_WIT]
     for internal in [False, True]:
         descriptors = []
-        for addr_type in [AddressType.LEGACY, AddressType.WIT, AddressType.SH_WIT]:
+        for addr_type in support_addr_types:
             try:
                 desc = getdescriptor(client, master_fpr=master_fpr, internal=internal, addr_type=addr_type, account=account)
             except UnavailableActionError:

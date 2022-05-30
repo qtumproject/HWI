@@ -43,6 +43,7 @@ class HardwareWalletClient(object):
         # {bip32_path: <xpub string>}
         self.xpub_cache: Dict[str, str] = {}
         self.expert = expert
+        self.model = None
 
     def get_master_xpub(self, addrtype: AddressType = AddressType.WIT, account: int = 0) -> ExtendedKey:
         """
