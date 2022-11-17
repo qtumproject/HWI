@@ -30,6 +30,7 @@ from .._script import (
     is_p2pkh,
     is_p2wpkh,
     is_p2wsh,
+    is_p2tr,
     parse_multisig,
 )
 from ..psbt import PSBT
@@ -258,11 +259,11 @@ def bitbox02_exception(f: T) -> T:
 
 # This class extends the HardwareWalletClient for BitBox02 specific things
 class Bitbox02Client(HardwareWalletClient):
-    def __init__(self, path: str, password: str = "", expert: bool = False) -> None:
+    def __init__(self, path: str, password: str = "", expert: bool = False, chain: Chain = Chain.MAIN) -> None:
         """
         Initializes a new BitBox02 client instance.
         """
-        super().__init__(path, password=password, expert=expert)
+        super().__init__(path, password=password, expert=expert, chain=chain)
         if password:
             raise BadArgumentError(
                 "The BitBox02 does not accept a passphrase from the host. Please enable the passphrase option and enter the passphrase on the device during unlock."
@@ -339,7 +340,7 @@ class Bitbox02Client(HardwareWalletClient):
             "The BitBox02 does not need a PIN sent from the host"
         )
 
-    def _get_coin(self) -> bitbox02.btc.BTCCoin:
+    def _get_coin(self) -> "bitbox02.btc.BTCCoin.V":
         if self.chain != Chain.MAIN:
             return bitbox02.btc.TBTC
         return bitbox02.btc.BTC
@@ -405,7 +406,7 @@ class Bitbox02Client(HardwareWalletClient):
         self,
         threshold: int,
         origin_infos: Mapping[bytes, KeyOriginInfo],
-        script_type: bitbox02.btc.BTCScriptConfig.Multisig.ScriptType,
+        script_type: "bitbox02.btc.BTCScriptConfig.Multisig.ScriptType.V",
     ) -> Tuple[bytes, bitbox02.btc.BTCScriptConfigWithKeypath]:
         """
         From a threshold, {xpub: KeyOriginInfo} mapping and multisig script type,
@@ -466,6 +467,8 @@ class Bitbox02Client(HardwareWalletClient):
             raise UnavailableActionError(
                 "The BitBox02 does not support legacy p2pkh addresses"
             )
+        elif addr_type == AddressType.TAP:
+            raise UnavailableActionError("BitBox02 does not support displaying Taproot addresses yet")
         else:
             raise BadArgumentError("Unknown address type")
         address = self.init().btc_address(
@@ -625,9 +628,11 @@ class Bitbox02Client(HardwareWalletClient):
         # must be exactly one pubkey per input that belongs to the BitBox02.
         found_pubkeys: List[bytes] = []
 
-        for input_index, (psbt_in, tx_in) in builtins.enumerate(
-            zip(psbt.inputs, psbt.tx.vin)
-        ):
+        for input_index, psbt_in in builtins.enumerate(psbt.inputs):
+            assert psbt_in.prev_txid is not None
+            assert psbt_in.prev_out is not None
+            assert psbt_in.sequence is not None
+
             if psbt_in.sighash and psbt_in.sighash != 1:
                 raise BadArgumentError(
                     "The BitBox02 only supports SIGHASH_ALL. Found sighash: {}".format(
@@ -648,13 +653,15 @@ class Bitbox02Client(HardwareWalletClient):
             # The BitBox02 for now requires the prevtx, at least until Taproot activates.
 
             if psbt_in.non_witness_utxo:
-                if tx_in.prevout.hash != psbt_in.non_witness_utxo.sha256:
+                assert psbt_in.non_witness_utxo.sha256 is not None
+                if psbt_in.prev_txid != ser_uint256(psbt_in.non_witness_utxo.sha256):
                     raise BadArgumentError(
                         "Input {} has a non_witness_utxo with the wrong hash".format(
                             input_index
                         )
                     )
-                utxo = psbt_in.non_witness_utxo.vout[tx_in.prevout.n]
+                assert psbt_in.prev_out is not None
+                utxo = psbt_in.non_witness_utxo.vout[psbt_in.prev_out]
                 prevtx = psbt_in.non_witness_utxo
             elif psbt_in.witness_utxo:
                 utxo = psbt_in.witness_utxo
@@ -685,10 +692,10 @@ class Bitbox02Client(HardwareWalletClient):
             )
             inputs.append(
                 {
-                    "prev_out_hash": ser_uint256(tx_in.prevout.hash),
-                    "prev_out_index": tx_in.prevout.n,
+                    "prev_out_hash": psbt_in.prev_txid,
+                    "prev_out_index": psbt_in.prev_out,
                     "prev_out_value": utxo.nValue,
-                    "sequence": tx_in.nSequence,
+                    "sequence": psbt_in.sequence,
                     "keypath": keypath,
                     "script_config_index": script_config_index,
                     "prev_tx": {
@@ -715,9 +722,10 @@ class Bitbox02Client(HardwareWalletClient):
             )
 
         outputs: List[bitbox02.BTCOutputType] = []
-        for output_index, (psbt_out, tx_out) in builtins.enumerate(
-            zip(psbt.outputs, psbt.tx.vout)
-        ):
+
+        for output_index, psbt_out in builtins.enumerate(psbt.outputs):
+            tx_out = psbt_out.get_txout()
+
             _, keypath = find_our_key(psbt_out.hd_keypaths)
             is_change = keypath and keypath[-2] == 1
             if is_change:
@@ -737,16 +745,19 @@ class Bitbox02Client(HardwareWalletClient):
             else:
                 if tx_out.is_p2pkh():
                     output_type = bitbox02.btc.P2PKH
-                    output_hash = tx_out.scriptPubKey[3:23]
+                    output_payload = tx_out.scriptPubKey[3:23]
                 elif is_p2wpkh(tx_out.scriptPubKey):
                     output_type = bitbox02.btc.P2WPKH
-                    output_hash = tx_out.scriptPubKey[2:]
+                    output_payload = tx_out.scriptPubKey[2:]
                 elif tx_out.is_p2sh():
                     output_type = bitbox02.btc.P2SH
-                    output_hash = tx_out.scriptPubKey[2:22]
+                    output_payload = tx_out.scriptPubKey[2:22]
                 elif is_p2wsh(tx_out.scriptPubKey):
                     output_type = bitbox02.btc.P2WSH
-                    output_hash = tx_out.scriptPubKey[2:]
+                    output_payload = tx_out.scriptPubKey[2:]
+                elif is_p2tr(tx_out.scriptPubKey):
+                    output_type = bitbox02.btc.P2TR
+                    output_payload = tx_out.scriptPubKey[2:]
                 else:
                     raise BadArgumentError(
                         "Output type not recognized of output {}".format(output_index)
@@ -755,7 +766,7 @@ class Bitbox02Client(HardwareWalletClient):
                 outputs.append(
                     bitbox02.BTCOutputExternal(
                         output_type=output_type,
-                        output_hash=output_hash,
+                        output_payload=output_payload,
                         value=tx_out.nValue,
                     )
                 )
@@ -769,13 +780,14 @@ class Bitbox02Client(HardwareWalletClient):
                 script_configs[0].script_config, script_configs[0].keypath
             )
 
+        assert psbt.tx_version is not None
         sigs = self.init().btc_sign(
             self._get_coin(),
             script_configs,
             inputs=inputs,
             outputs=outputs,
-            locktime=psbt.tx.nLockTime,
-            version=psbt.tx.nVersion,
+            locktime=psbt.compute_lock_time(),
+            version=psbt.tx_version,
         )
 
         for (_, sig), pubkey, psbt_in in zip(sigs, found_pubkeys, psbt.inputs):
@@ -866,3 +878,11 @@ class Bitbox02Client(HardwareWalletClient):
 
         bb02.restore_from_mnemonic()
         return True
+
+    def can_sign_taproot(self) -> bool:
+        """
+        The BitBox02 does not support Taproot yet.
+
+        :returns: False, always
+        """
+        return False

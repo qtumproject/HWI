@@ -22,8 +22,16 @@ while [[ $# -gt 0 ]]; do
         build_ledger=1
         shift
         ;;
+        --ledger-legacy)
+        build_ledger=1
+        shift
+        ;;
         --keepkey)
         build_keepkey=1
+        shift
+        ;;
+        --jade)
+        build_jade=1
         shift
         ;;
         --bitcoind)
@@ -37,6 +45,7 @@ while [[ $# -gt 0 ]]; do
         build_bitbox01=1
         build_ledger=1
         build_keepkey=1
+        build_jade=1
         build_bitcoind=1
         shift
         ;;
@@ -131,11 +140,7 @@ if [[ -n ${build_coldcard} ]]; then
     fi
     # Apply patch to make simulator work in linux environments
     git am ../../data/coldcard-multisig.patch
-
-    # Apply patch to libngu to make it compile
-    pushd external/libngu
-    git am ../../../../data/coldcard-libngu.patch
-    popd
+    git am ../../data/coldcard-ffilib.patch
 
     # Build the simulator. This is cached, but it is also fast
     poetry run pip install -r requirements.txt
@@ -176,7 +181,7 @@ if [[ -n ${build_bitbox01} ]]; then
 
     # Build the simulator. This is cached, but it is also fast
     mkdir -p build && cd build
-    cmake .. -DBUILD_TYPE=simulator -DCMAKE_C_FLAGS="-Wno-format-truncation"
+    cmake .. -DBUILD_TYPE=simulator -DCMAKE_C_FLAGS="-Wno-format-truncation -Wno-array-parameter"
     make
     cd ../..
 fi
@@ -213,6 +218,7 @@ if [[ -n ${build_keepkey} ]]; then
 
     # Build the simulator. This is cached, but it is also fast
     if [ "$keepkey_setup_needed" == true ] ; then
+        git clean -ffdx
         git clone https://github.com/nanopb/nanopb.git -b nanopb-0.3.9.4
     fi
     cd nanopb/generator/proto
@@ -258,6 +264,127 @@ if [[ -n ${build_ledger} ]]; then
     cd ..
 fi
 
+if [[ -n ${build_jade} ]]; then
+    mkdir -p jade
+    cd jade
+
+    # Clone Blockstream Jade firmware if it doesn't exist, or update it if it does
+    if [ ! -d "jade" ]; then
+        git clone --recursive --branch master https://github.com/Blockstream/Jade.git ./jade
+        cd jade
+    else
+        cd jade
+        git fetch
+
+        # Determine if we need to pull. From https://stackoverflow.com/a/3278427
+        UPSTREAM=${1:-'@{u}'}
+        LOCAL=$(git rev-parse @)
+        REMOTE=$(git rev-parse "$UPSTREAM")
+        BASE=$(git merge-base @ "$UPSTREAM")
+
+        if [ $LOCAL = $REMOTE ]; then
+            echo "Up-to-date"
+        elif [ $LOCAL = $BASE ]; then
+            git pull
+        fi
+        git submodule update --recursive --init
+    fi
+
+    # Deduce the relevant versions of esp-idf and qemu to use
+    ESP_IDF_BRANCH=$(grep "ARG ESP_IDF_BRANCH=" Dockerfile | cut -d\= -f2)
+    ESP_IDF_COMMIT=$(grep "ARG ESP_IDF_COMMIT=" Dockerfile | cut -d\= -f2)
+    ESP_QEMU_BRANCH=$(grep "ARG ESP_QEMU_BRANCH=" Dockerfile | cut -d\= -f2)
+    ESP_QEMU_COMMIT=$(grep "ARG ESP_QEMU_COMMIT=" Dockerfile | cut -d\= -f2)
+    cd ..
+
+    # Build the qemu emulator
+    if [ ! -d "qemu" ]; then
+        git clone --depth 1 --branch ${ESP_QEMU_BRANCH} --single-branch --recursive https://github.com/espressif/qemu.git ./qemu
+        cd qemu
+        ./configure \
+            --target-list=xtensa-softmmu \
+            --enable-gcrypt \
+            --disable-user \
+            --disable-opengl \
+            --disable-curses \
+            --disable-capstone \
+            --disable-vnc \
+            --disable-parallels \
+            --disable-qed \
+            --disable-vvfat \
+            --disable-vdi \
+            --disable-qcow1 \
+            --disable-dmg \
+            --disable-cloop \
+            --disable-bochs \
+            --disable-replication \
+            --disable-live-block-migration \
+            --disable-keyring \
+            --disable-containers \
+            --disable-docs \
+            --disable-libssh \
+            --disable-xen \
+            --disable-tools \
+            --disable-zlib-test \
+            --disable-sdl \
+            --disable-gtk \
+            --disable-vhost-scsi \
+            --disable-qom-cast-debug \
+            --disable-tpm \
+            --extra-cflags=-Wno-array-parameter
+    else
+        cd qemu
+        git fetch
+    fi
+    git checkout ${ESP_QEMU_COMMIT}
+    git submodule update --recursive --init
+    ninja -C build
+    cd ..
+
+    # Build the esp-idf toolchain
+    # We will install the esp-idf tools in a given location (otherwise defaults to user home dir)
+    export IDF_TOOLS_PATH="$(pwd)/esp-idf-tools"
+    if [ ! -d "esp-idf" ]; then
+        git clone --depth=1 --branch ${ESP_IDF_BRANCH} --single-branch --recursive https://github.com/espressif/esp-idf.git ./esp-idf
+        cd esp-idf
+    else
+        cd esp-idf
+        git fetch
+    fi
+    git checkout ${ESP_IDF_COMMIT}
+    git submodule update --recursive --init
+
+    # Only install the tools we need (ie. esp32)
+    ./install.sh esp32
+    . ./export.sh
+    cd ..
+
+    # Build Blockstream Jade firmware configured for the emulator
+    cd jade
+    rm -fr sdkconfig
+    cp configs/sdkconfig_qemu.defaults sdkconfig.defaults
+    idf.py all
+
+    # Make the qemu flash image
+    esptool.py --chip esp32 merge_bin --fill-flash-size 4MB -o main/qemu/flash_image.bin \
+    --flash_mode dio --flash_freq 40m --flash_size 4MB \
+    0x9000 build/partition_table/partition-table.bin \
+    0xe000 build/ota_data_initial.bin \
+    0x1000 build/bootloader/bootloader.bin \
+    0x10000 build/jade.bin
+    cd ..
+
+    # Extract the minimal artifacts required to run the emulator
+    rm -fr simulator
+    mkdir simulator
+    cp qemu/build/qemu-system-xtensa simulator/
+    cp -R qemu/pc-bios simulator/
+    cp jade/main/qemu/flash_image.bin simulator/
+    cp jade/main/qemu/qemu_efuse.bin simulator/
+
+    cd ..
+fi
+
 if [[ -n ${build_bitcoind} ]]; then
     # Clone bitcoind if it doesn't exist, or update it if it does
     bitcoind_setup_needed=false
@@ -267,6 +394,7 @@ if [[ -n ${build_bitcoind} ]]; then
         bitcoind_setup_needed=true
     else
         cd bitcoin
+        git reset --hard origin/master
         git fetch
 
         # Determine if we need to pull. From https://stackoverflow.com/a/3278427
@@ -287,6 +415,11 @@ if [[ -n ${build_bitcoind} ]]; then
     pushd depends
     make NO_QT=1 NO_QR=1 NO_ZMQ=1 NO_UPNP=1 NO_NATPMP=1
     popd
+
+    # Apply Taproot PSBT and PSBTv2 fields patch
+    git am ../../data/bitcoind_taproot_psbt2.patch
+
+    # Do the build
     ./autogen.sh
     CONFIG_SITE=$PWD/depends/x86_64-pc-linux-gnu/share/config.site ./configure --with-incompatible-bdb --with-miniupnpc=no --without-gui --disable-zmq --disable-tests --disable-bench --with-libs=no --with-utils=no
     make src/bitcoind
