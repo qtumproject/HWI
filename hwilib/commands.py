@@ -383,7 +383,7 @@ def getkeypool(
 
     addr_types = [addr_type]
     if addr_all:
-        addr_types = list(AddressType)
+        addr_types = [AddressType.LEGACY, AddressType.WIT, AddressType.SH_WIT]
     elif not supports_taproot and addr_type == AddressType.TAP:
         raise UnavailableActionError("Device does not support Taproot")
 

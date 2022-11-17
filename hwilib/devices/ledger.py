@@ -176,10 +176,8 @@ class LedgerClient(HardwareWalletClient):
 
     @ledger_exception
     def get_app_name(self) -> str:
-        appName = self.app.getAppName()
-        if appName not in ["Qtum", "Qtum Test", "Qtum Stake", "Qtum Stake Test", "Bitcoin", "Bitcoin Test", "app"]:
-            raise UnknownDeviceError("Ledger is not in either the Bitcoin or Bitcoin Testnet app")
-        return appName
+        app_name, _, _ = self.client.get_version()
+        return app_name
 
     @ledger_exception
     def get_master_fingerprint(self) -> bytes:
