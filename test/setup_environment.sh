@@ -89,7 +89,8 @@ if [[ -n ${build_trezor_1} || -n ${build_trezor_t} ]]; then
         # But there should be some caching that makes this faster
         poetry install
         cd legacy
-        export EMULATOR=1 TREZOR_TRANSPORT_V1=1 DEBUG_LINK=1 HEADLESS=1
+        export EMULATOR=1 TREZOR_TRANSPORT_V1=1 DEBUG_LINK=1 HEADLESS=1 PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+        poetry run pip install -U protobuf
         poetry run script/setup
         poetry run script/cibuild
         # Delete any emulator.img file
@@ -98,9 +99,10 @@ if [[ -n ${build_trezor_1} || -n ${build_trezor_t} ]]; then
     fi
 
     if [[ -n ${build_trezor_t} ]]; then
-        rustup toolchain uninstall stable
-        rustup toolchain install stable
         rustup update
+        rustup toolchain uninstall nightly
+        rustup toolchain install nightly
+        rustup default nightly
         # Build trezor t emulator. This is pretty fast, so rebuilding every time is ok
         # But there should be some caching that makes this faster
         poetry install
@@ -140,7 +142,6 @@ if [[ -n ${build_coldcard} ]]; then
     fi
     # Apply patch to make simulator work in linux environments
     git am ../../data/coldcard-multisig.patch
-    git am ../../data/coldcard-ffilib.patch
 
     # Build the simulator. This is cached, but it is also fast
     poetry run pip install -r requirements.txt
@@ -225,7 +226,7 @@ if [[ -n ${build_keepkey} ]]; then
     make
     cd ../../../
     export PATH=$PATH:`pwd`/nanopb/generator
-    cmake -C cmake/caches/emulator.cmake . -DNANOPB_DIR=nanopb/ -DPROTOC_BINARY=/usr/bin/protoc
+    cmake -C cmake/caches/emulator.cmake . -DNANOPB_DIR=nanopb/ -DPROTOC_BINARY=/usr/local/bin/protoc
     make
     # Delete any emulator.img file
     find . -name "emulator.img" -exec rm {} \;
@@ -274,7 +275,7 @@ if [[ -n ${build_jade} ]]; then
         cd jade
     else
         cd jade
-        git fetch
+        git fetch --tags --recurse-submodules
 
         # Determine if we need to pull. From https://stackoverflow.com/a/3278427
         UPSTREAM=${1:-'@{u}'}
@@ -283,7 +284,7 @@ if [[ -n ${build_jade} ]]; then
         BASE=$(git merge-base @ "$UPSTREAM")
 
         if [ $LOCAL = $REMOTE ]; then
-            echo "Up-to-date"
+            echo "Jade master up-to-date"
         elif [ $LOCAL = $BASE ]; then
             git pull
         fi
@@ -297,10 +298,30 @@ if [[ -n ${build_jade} ]]; then
     ESP_QEMU_COMMIT=$(grep "ARG ESP_QEMU_COMMIT=" Dockerfile | cut -d\= -f2)
     cd ..
 
-    # Build the qemu emulator
+    # Build the qemu emulator if required
+
+    # If the directory exists, see if it is at the expected commit
+    # If not, remove the entire directory (it will be re-cloned below)
+    if [ -d "qemu" ]; then
+        cd qemu
+        LOCAL=$(git rev-parse @)
+        if [ $LOCAL = $ESP_QEMU_COMMIT ]; then
+            echo "esp-qemu up-to-date"
+            cd ..
+        else
+            cd ..
+            rm -fr qemu
+        fi
+    fi
+
+    # Clone the upstream if the directory does not exist
+    # Then build the emulator
     if [ ! -d "qemu" ]; then
         git clone --depth 1 --branch ${ESP_QEMU_BRANCH} --single-branch --recursive https://github.com/espressif/qemu.git ./qemu
         cd qemu
+
+        git checkout ${ESP_QEMU_COMMIT}
+        git submodule update --recursive --init
         ./configure \
             --target-list=xtensa-softmmu \
             --enable-gcrypt \
@@ -332,32 +353,52 @@ if [[ -n ${build_jade} ]]; then
             --disable-qom-cast-debug \
             --disable-tpm \
             --extra-cflags=-Wno-array-parameter
-    else
-        cd qemu
-        git fetch
+        ninja -C build
+        cd ..
     fi
-    git checkout ${ESP_QEMU_COMMIT}
-    git submodule update --recursive --init
-    ninja -C build
-    cd ..
 
-    # Build the esp-idf toolchain
+    # Build the esp-idf toolchain if required
+
     # We will install the esp-idf tools in a given location (otherwise defaults to user home dir)
     export IDF_TOOLS_PATH="$(pwd)/esp-idf-tools"
+
+    # If the directory exists, see if it is at the expected commit
+    # If not, remove the entire directory (it will be re-cloned below)
+    if [ -d "esp-idf" ]; then
+        cd esp-idf
+        LOCAL=$(git rev-parse @)
+        if [ $LOCAL = $ESP_IDF_COMMIT ]; then
+            echo "esp-idf up-to-date"
+            cd ..
+        else
+            cd ..
+            rm -fr esp-idf
+        fi
+    fi
+
+    # Clone the upstream if the directory does not exist
+    # Then build and install the tools
     if [ ! -d "esp-idf" ]; then
         git clone --depth=1 --branch ${ESP_IDF_BRANCH} --single-branch --recursive https://github.com/espressif/esp-idf.git ./esp-idf
         cd esp-idf
-    else
-        cd esp-idf
-        git fetch
-    fi
-    git checkout ${ESP_IDF_COMMIT}
-    git submodule update --recursive --init
 
+        git checkout ${ESP_IDF_COMMIT}
+        git submodule update --recursive --init
+        cd ..
+    fi
+
+    # Install the tools every run regardless
+    # (Otherwise a cached CI run which skips the above esp-idf clone does not
+    # always seem to pick up the locally installed python virtualenv, and instead uses
+    # the system python/no-virtualenv which fails ...)
     # Only install the tools we need (ie. esp32)
+    cd esp-idf
+    rm -fr ${IDF_TOOLS_PATH}
     ./install.sh esp32
-    . ./export.sh
     cd ..
+
+    # Export the tools
+    . ./esp-idf/export.sh
 
     # Build Blockstream Jade firmware configured for the emulator
     cd jade
@@ -415,9 +456,6 @@ if [[ -n ${build_bitcoind} ]]; then
     pushd depends
     make NO_QT=1 NO_QR=1 NO_ZMQ=1 NO_UPNP=1 NO_NATPMP=1
     popd
-
-    # Apply Taproot PSBT and PSBTv2 fields patch
-    git am ../../data/bitcoind_taproot_psbt2.patch
 
     # Do the build
     ./autogen.sh
