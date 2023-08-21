@@ -9,9 +9,9 @@ PYTHON_FOLDER="python3"
 PYHOME="c:/$PYTHON_FOLDER"
 PYTHON="wine $PYHOME/python.exe -OO -B"
 
-LIBUSB_VERSION=1.0.23
-LIBUSB_URL=https://github.com/libusb/libusb/releases/download/v1.0.23/libusb-1.0.23.tar.bz2
-LIBUSB_HASH="db11c06e958a82dac52cf3c65cb4dd2c3f339c8a988665110e0d24d19312ad8d"
+LIBUSB_VERSION=1.0.26
+LIBUSB_URL=https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2
+LIBUSB_HASH="12ce7a61fc9854d1d2a1ffe095f7b5fac19ddba095c259e6067a46500381b5a5"
 
 WINDOWS_SDK_URL=http://go.microsoft.com/fwlink/p/?LinkID=2033686
 WINDOWS_SDK_HASH="016981259708e1afcab666c7c1ff44d1c4d63b5e778af8bc41b4f6db3d27961a"
@@ -88,7 +88,7 @@ unset PYTHONHASHSEED
 # Make the final compressed package
 pushd dist
 VERSION=`$POETRY run hwi --version | cut -d " " -f 2 | dos2unix`
-target_zipfile="hwi-${VERSION}-windows-amd64.zip"
+target_zipfile="hwi-${VERSION}-windows-x86_64.zip"
 zip $target_zipfile hwi.exe hwi-qt.exe
 
 # Copy the binaries to subdir for shasum

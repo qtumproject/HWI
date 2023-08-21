@@ -137,7 +137,7 @@ class DeviceTestCase(unittest.TestCase):
         self.emulator = emulator
 
         self.dev_args = ['-t', self.emulator.type, '-d', self.emulator.path, '--chain', 'test']
-        if self.emulator.password:
+        if self.emulator.password is not None:
             self.dev_args.extend(['-p', self.emulator.password])
 
         self.interface = interface
@@ -173,7 +173,7 @@ class DeviceTestCase(unittest.TestCase):
             return process_commands(args)
 
     def get_password_args(self):
-        if self.emulator.password:
+        if self.emulator.password is not None:
             return ['-p', self.emulator.password]
         return []
 
@@ -267,9 +267,9 @@ class TestGetKeypool(DeviceTestCase):
                 self.assertTrue(import_result[0]["success"])
                 for _ in range(0, 21):
                     addr_info = self.wrpc.getaddressinfo(self.wrpc.getnewaddress("", arg[2]))
-                    self.assertTrue(addr_info["hdkeypath"].startswith(f"m/{arg[1]}'/1'/0'/0/"))
+                    self.assertTrue(addr_info["hdkeypath"].startswith(f"m/{arg[1]}h/1h/0h/0/"))
                     addr_info = self.wrpc.getaddressinfo(self.wrpc.getrawchangeaddress(arg[2]))
-                    self.assertTrue(addr_info["hdkeypath"].startswith(f"m/{arg[1]}'/1'/0'/1/"))
+                    self.assertTrue(addr_info["hdkeypath"].startswith(f"m/{arg[1]}h/1h/0h/1/"))
                 descs.extend(desc)
 
         # Test that `--all` option gives the "concatenation" of previous four calls
@@ -281,24 +281,24 @@ class TestGetKeypool(DeviceTestCase):
         self.assertTrue(import_result[0]['success'])
         for _ in range(0, 21):
             addr_info = self.wrpc.getaddressinfo(self.wrpc.getnewaddress('', 'p2sh-segwit'))
-            self.assertTrue(addr_info['hdkeypath'].startswith("m/49'/1'/3'/0/"))
+            self.assertTrue(addr_info['hdkeypath'].startswith("m/49h/1h/3h/0/"))
             addr_info = self.wrpc.getaddressinfo(self.wrpc.getrawchangeaddress('p2sh-segwit'))
-            self.assertTrue(addr_info['hdkeypath'].startswith("m/49'/1'/3'/1/"))
+            self.assertTrue(addr_info['hdkeypath'].startswith("m/49h/1h/3h/1/"))
         keypool_desc = self.do_command(self.dev_args + ['getkeypool', '--account', '3', '0', '20'])
         import_result = self.wrpc.importdescriptors(keypool_desc)
         self.assertTrue(import_result[0]['success'])
         for _ in range(0, 21):
             addr_info = self.wrpc.getaddressinfo(self.wrpc.getnewaddress('', 'bech32'))
-            self.assertTrue(addr_info['hdkeypath'].startswith("m/84'/1'/3'/0/"))
+            self.assertTrue(addr_info['hdkeypath'].startswith("m/84h/1h/3h/0/"))
             addr_info = self.wrpc.getaddressinfo(self.wrpc.getrawchangeaddress('bech32'))
-            self.assertTrue(addr_info['hdkeypath'].startswith("m/84'/1'/3'/1/"))
+            self.assertTrue(addr_info['hdkeypath'].startswith("m/84h/1h/3h/1/"))
 
         keypool_desc = self.do_command(self.dev_args + ['getkeypool', '--path', 'm/0h/0h/4h/*', '0', '20'])
         import_result = self.wrpc.importdescriptors(keypool_desc)
         self.assertTrue(import_result[0]['success'])
         for _ in range(0, 21):
             addr_info = self.wrpc.getaddressinfo(self.wrpc.getnewaddress('', 'bech32'))
-            self.assertTrue(addr_info['hdkeypath'].startswith("m/0'/0'/4'/"))
+            self.assertTrue(addr_info['hdkeypath'].startswith("m/0h/0h/4h/"))
 
         keypool_desc = self.do_command(self.dev_args + ['getkeypool', '--path', '/0h/0h/4h/*', '0', '20'])
         self.assertEqual(keypool_desc['error'], 'Path must start with m/')

@@ -71,7 +71,7 @@ py_enumerate = enumerate
 
 
 # Get the client for the device
-def get_client(device_type: str, device_path: str, password: str = "", expert: bool = False, chain: Chain = Chain.MAIN, model: str = "") -> Optional[HardwareWalletClient]:
+def get_client(device_type: str, device_path: str, password: Optional[str] = "", expert: bool = False, chain: Chain = Chain.MAIN, model: str = "") -> Optional[HardwareWalletClient]:
     """
     Returns a HardwareWalletClient for the given device type at the device path
 
@@ -101,7 +101,7 @@ def get_client(device_type: str, device_path: str, password: str = "", expert: b
     return client
 
 # Get a list of all available hardware wallets
-def enumerate(password: str = "", chain: Chain = Chain.MAIN) -> List[Dict[str, Any]]:
+def enumerate(password: Optional[str] = None, expert: bool = False, chain: Chain = Chain.MAIN) -> List[Dict[str, Any]]:
     """
     Enumerate all of the devices that HWI can potentially access.
 
@@ -114,7 +114,7 @@ def enumerate(password: str = "", chain: Chain = Chain.MAIN) -> List[Dict[str, A
     for module in all_devs:
         try:
             imported_dev = importlib.import_module('.devices.' + module, __package__)
-            result.extend(imported_dev.enumerate(password, chain)) # type: ignore
+            result.extend(imported_dev.enumerate(password, expert, chain))
         except ImportError as e:
             # Warn for ImportErrors, but largely ignore them to allow users not install
             # all device dependencies if only one or some devices are wanted.
@@ -124,7 +124,7 @@ def enumerate(password: str = "", chain: Chain = Chain.MAIN) -> List[Dict[str, A
 
 # Fingerprint or device type required
 def find_device(
-    password: str = "",
+    password: Optional[str] = None,
     device_type: Optional[str] = None,
     fingerprint: Optional[str] = None,
     expert: bool = False,
@@ -145,7 +145,7 @@ def find_device(
     :return: A client to interact with the found device
     """
 
-    devices = enumerate(password, chain)
+    devices = enumerate(password, expert, chain)
     for d in devices:
         if device_type is not None and d['type'] != device_type and d['model'] != device_type:
             continue

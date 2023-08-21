@@ -21,8 +21,7 @@ import builtins
 import sys
 from functools import wraps
 
-import base58
-
+from .._base58 import decode_check, encode_check
 from ..descriptor import MultisigDescriptor
 from ..hwwclient import HardwareWalletClient
 from ..key import ExtendedKey
@@ -62,9 +61,9 @@ from ..common import (
 
 import hid
 
-from bitbox02 import util
-from bitbox02 import bitbox02
-from bitbox02.communication import (
+from .bitbox02_lib import util
+from .bitbox02_lib import bitbox02
+from .bitbox02_lib.communication import (
     devices,
     u2fhid,
     FirmwareVersionOutdatedException,
@@ -74,7 +73,7 @@ from bitbox02.communication import (
     ERR_GENERIC,
 )
 
-from bitbox02.communication.bitbox_api_protocol import (
+from .bitbox02_lib.communication.bitbox_api_protocol import (
     Platform,
     BitBox02Edition,
     BitBoxNoiseConfig,
@@ -108,7 +107,7 @@ PURPOSE_MULTISIG_P2WSH = 48 + HARDENED
 
 # External GUI tools using hwi.py as a command line tool to integrate hardware wallets usually do
 # not have an actual terminal for IO.
-_using_external_gui = not sys.stdout.isatty()
+_using_external_gui = sys.stdout is not None and not sys.stdout.isatty()
 if _using_external_gui:
     _unpaired_errmsg = "Device not paired yet. Please pair using the BitBoxApp, then close the BitBoxApp and try again."
 else:
@@ -174,7 +173,7 @@ def _xpubs_equal_ignoring_version(xpub1: bytes, xpub2: bytes) -> bool:
     return xpub1[4:] == xpub2[4:]
 
 
-def enumerate(password: str = "") -> List[Dict[str, object]]:
+def enumerate(password: Optional[str] = None, expert: bool = False, chain: Chain = Chain.MAIN) -> List[Dict[str, Any]]:
     """
     Enumerate all BitBox02 devices. Bootloaders excluded.
     """
@@ -259,15 +258,15 @@ def bitbox02_exception(f: T) -> T:
 
 # This class extends the HardwareWalletClient for BitBox02 specific things
 class Bitbox02Client(HardwareWalletClient):
-    def __init__(self, path: str, password: str = "", expert: bool = False, chain: Chain = Chain.MAIN) -> None:
+    def __init__(self, path: str, password: Optional[str] = None, expert: bool = False, chain: Chain = Chain.MAIN) -> None:
         """
         Initializes a new BitBox02 client instance.
         """
-        super().__init__(path, password=password, expert=expert, chain=chain)
-        if password:
+        if password is not None:
             raise BadArgumentError(
                 "The BitBox02 does not accept a passphrase from the host. Please enable the passphrase option and enter the passphrase on the device during unlock."
             )
+        super().__init__(path, password=password, expert=expert, chain=chain)
 
         hid_device = hid.device()
         hid_device.open_path(path.encode())
@@ -423,7 +422,7 @@ class Bitbox02Client(HardwareWalletClient):
             xpubs.append(xpub)
             if device_fingerprint == keyinfo.fingerprint and keyinfo.path:
                 if _xpubs_equal_ignoring_version(
-                    base58.b58decode_check(self._get_xpub(keyinfo.path)), xpub
+                    decode_check(self._get_xpub(keyinfo.path)), xpub
                 ):
                     our_xpub_index = i
                     our_account_keypath = keyinfo.path
@@ -441,7 +440,7 @@ class Bitbox02Client(HardwareWalletClient):
                 script_config=bitbox02.btc.BTCScriptConfig(
                     multisig=bitbox02.btc.BTCScriptConfig.Multisig(
                         threshold=threshold,
-                        xpubs=[util.parse_xpub(base58.b58encode_check(xpub).decode()) for xpub in xpubs],
+                        xpubs=[util.parse_xpub(encode_check(xpub)) for xpub in xpubs],
                         our_xpub_index=our_xpub_index,
                         script_type=script_type,
                     )

@@ -31,9 +31,9 @@ LOGGING = None  # logging.INFO
 
 # Enable jade logging
 if LOGGING:
-    logger = logging.getLogger('jade')
+    logger = logging.getLogger("hwilib.devices.jadepy.jade")
     logger.setLevel(LOGGING)
-    device_logger = logging.getLogger('jade-device')
+    device_logger = logging.getLogger("hwilib.devices.jadepy.jade-device")
     device_logger.setLevel(LOGGING)
 
 class JadeEmulator(DeviceEmulator):
@@ -69,7 +69,8 @@ class JadeEmulator(DeviceEmulator):
                     '-nic', 'user,model=open_eth,id=lo0,hostfwd=tcp:0.0.0.0:30121-:30121',
                     '-drive', 'file=qemu_efuse.bin,if=none,format=raw,id=efuse',
                     '-global', 'driver=nvram.esp32.efuse,property=drive,value=efuse',
-                    '-serial', 'pty'
+                    '-serial', 'pty',
+                    '-L', './pc-bios'
                 ],
                 cwd=self.emulator_path,
                 preexec_fn=os.setsid,

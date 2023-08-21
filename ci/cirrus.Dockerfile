@@ -1,4 +1,6 @@
-FROM python:3.7
+# Cache break (modify this line to break cirrus' dockerfile build cache) 1
+
+FROM python:3.8
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
@@ -30,6 +32,7 @@ RUN apt-get install -y \
     libsdl2-dev \
     libsdl2-image-dev \
     libssl-dev \
+    libslirp-dev \
     libtool \
     libudev-dev \
     libusb-1.0-0-dev \
@@ -42,8 +45,8 @@ RUN pip install poetry flake8
 RUN wget https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
 RUN chmod +x rustup-init && ./rustup-init -y
 ENV PATH="/root/.cargo/bin:$PATH"
-RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v21.9/protoc-21.9-linux-x86_64.zip
-RUN unzip protoc-21.9-linux-x86_64.zip -d /usr/local
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v22.0/protoc-22.0-linux-x86_64.zip
+RUN unzip protoc-22.0-linux-x86_64.zip -d /usr/local
 RUN protoc --version
 
 ####################

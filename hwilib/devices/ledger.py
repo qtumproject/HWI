@@ -150,7 +150,7 @@ def ledger_exception(f: Callable[..., Any]) -> Any:
 # This class extends the HardwareWalletClient for Ledger Nano S and Nano X specific things
 class LedgerClient(HardwareWalletClient):
 
-    def __init__(self, path: str, password: str = "", expert: bool = False, chain: Chain = Chain.MAIN) -> None:
+    def __init__(self, path: str, password: Optional[str] = None, expert: bool = False, chain: Chain = Chain.MAIN) -> None:
         super(LedgerClient, self).__init__(path, password, expert, chain)
 
         is_debug = logging.getLogger().getEffectiveLevel() == logging.DEBUG
@@ -553,7 +553,7 @@ class LedgerClient(HardwareWalletClient):
         return isinstance(self.client, NewClient)
 
 
-def enumerate(password: str = '', chain: Chain = Chain.MAIN) -> List[Dict[str, Any]]:
+def enumerate(password: Optional[str] = None, expert: bool = False, chain: Chain = Chain.MAIN) -> List[Dict[str, Any]]:
     results = []
     devices = []
     devices.extend(hid.enumerate(LEDGER_VENDOR_ID, 0))
