@@ -32,6 +32,7 @@ from ..errors import (
 from ..common import (
     AddressType,
     Chain,
+    hash160,
 )
 from .ledger_bitcoin.client import (
     createClient,
@@ -227,9 +228,38 @@ class LedgerClient(HardwareWalletClient):
         if tx.version != 2:
             psbt2.convert_to_v2()
 
+        sender_wallets: Dict[bytes, Tuple[int, AddressType, str, WalletPolicy, Optional[bytes]]] = {}
+        for output_num, psbt_out in builtins.enumerate(psbt2.outputs):
+            decoded = decode_opsender_script(psbt_out.script)
+            if (decoded is None) or decoded[3][1]:
+                continue
+            for pubkey, origin in psbt_out.hd_keypaths.items():
+                if origin.fingerprint != master_fp or hash160(pubkey) != decoded[1][1]:
+                    continue
+                sender_path = origin.get_derivation_path()[2:]
+                script_addrtype = AddressType.LEGACY
+                policy = self._get_singlesig_default_wallet_policy(script_addrtype, origin.path[2])
+                sender_wallets[policy.id] = (
+                    signing_priority[script_addrtype],
+                    script_addrtype,
+                    sender_path,
+                    self._get_singlesig_default_wallet_policy(script_addrtype, origin.path[2]),
+                    None, # Wallet hmac
+                )
+
+        # sign opsender
+        for _, (_, addrtype, bip32_path, wallet, wallet_hmac) in sorted(sender_wallets.items(), key=lambda y: y[1][0]):
+            sender_sigs = self.client.sign_sender_psbt(psbt2, bip32_path, wallet, wallet_hmac)
+            for odx, pubkey, sig in sender_sigs:
+                psbt_out = psbt2.outputs[odx]
+                psbt_out.script = update_opsender_sig(psbt_out.script, sig)
+                tx.outputs[odx].script = psbt_out.script
+
         # Figure out which wallets are signing
         wallets: Dict[bytes, Tuple[int, AddressType, WalletPolicy, Optional[bytes]]] = {}
         pubkeys: Dict[int, bytes] = {}
+
+
         for input_num, psbt_in in builtins.enumerate(psbt2.inputs):
             utxo = None
             scriptcode = b""
