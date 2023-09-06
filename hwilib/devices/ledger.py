@@ -236,7 +236,7 @@ class LedgerClient(HardwareWalletClient):
             for pubkey, origin in psbt_out.hd_keypaths.items():
                 if origin.fingerprint != master_fp or hash160(pubkey) != decoded[1][1]:
                     continue
-                sender_path = origin.get_derivation_path()[2:]
+                sender_path = origin.get_derivation_path(hardened_char="'")
                 script_addrtype = AddressType.LEGACY
                 policy = self._get_singlesig_default_wallet_policy(script_addrtype, origin.path[2])
                 sender_wallets[policy.id] = (

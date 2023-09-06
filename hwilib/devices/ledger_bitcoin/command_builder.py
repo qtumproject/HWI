@@ -8,7 +8,7 @@ from .wallet import WalletPolicy
 # p2 encodes the protocol version implemented
 CURRENT_PROTOCOL_VERSION = 1
 
-def bip32_path_from_string(path: str) -> List[bytes]:
+def bip32_path_from_string(path: Union[str, List[int]]) -> List[bytes]:
     splitted_path: List[str] = path.split("/")
 
     if not splitted_path:

@@ -314,11 +314,11 @@ class KeyOriginInfo(object):
             path = parse_path(s[9:])
         return cls(fingerprint, path)
 
-    def get_derivation_path(self) -> str:
+    def get_derivation_path(self, hardened_char: str = "h") -> str:
         """
         Return the string for just the path
         """
-        return "m" + self._path_string()
+        return "m" + self._path_string(hardened_char)
 
     def get_full_int_list(self) -> List[int]:
         """
