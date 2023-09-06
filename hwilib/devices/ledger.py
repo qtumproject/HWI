@@ -243,7 +243,7 @@ class LedgerClient(HardwareWalletClient):
                     signing_priority[script_addrtype],
                     script_addrtype,
                     sender_path,
-                    self._get_singlesig_default_wallet_policy(script_addrtype, origin.path[2]),
+                    policy,
                     None, # Wallet hmac
                 )
 
@@ -258,8 +258,6 @@ class LedgerClient(HardwareWalletClient):
         # Figure out which wallets are signing
         wallets: Dict[bytes, Tuple[int, AddressType, WalletPolicy, Optional[bytes]]] = {}
         pubkeys: Dict[int, bytes] = {}
-
-
         for input_num, psbt_in in builtins.enumerate(psbt2.inputs):
             utxo = None
             scriptcode = b""
@@ -351,7 +349,7 @@ class LedgerClient(HardwareWalletClient):
                     wallets[policy.id] = (
                         signing_priority[script_addrtype],
                         script_addrtype,
-                        self._get_singlesig_default_wallet_policy(script_addrtype, origin.path[2]),
+                        policy,
                         None, # Wallet hmac
                     )
 
