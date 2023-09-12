@@ -250,7 +250,10 @@ class LedgerClient(HardwareWalletClient):
         # sign opsender
         for _, (_, addrtype, bip32_path, wallet, wallet_hmac) in sorted(sender_wallets.items(), key=lambda y: y[1][0]):
             sender_sigs = self.client.sign_sender_psbt(psbt2, bip32_path, wallet, wallet_hmac)
-            for odx, pubkey, sig in sender_sigs:
+            for odx, pubkey, output_sig in sender_sigs:
+                sig = bytes.fromhex(push_data((output_sig + b'\x01').hex()))
+                sig += bytes.fromhex(push_data(pubkey.hex()))
+                sig = bytes.fromhex(int_to_hex(len(sig))) + sig
                 psbt_out = psbt2.outputs[odx]
                 psbt_out.script = update_opsender_sig(psbt_out.script, sig)
                 tx.outputs[odx].script = psbt_out.script
