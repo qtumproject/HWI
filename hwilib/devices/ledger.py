@@ -257,6 +257,7 @@ class LedgerClient(HardwareWalletClient):
                 psbt_out = psbt2.outputs[odx]
                 psbt_out.script = update_opsender_sig(psbt_out.script, sig)
                 tx.outputs[odx].script = psbt_out.script
+                tx.tx.vout[odx].scriptPubKey = psbt_out.script
 
         # Figure out which wallets are signing
         wallets: Dict[bytes, Tuple[int, AddressType, WalletPolicy, Optional[bytes]]] = {}
