@@ -1,4 +1,6 @@
-FROM python:3.6
+# Cache break (modify this line to break cirrus' dockerfile build cache) 1
+
+FROM python:3.8
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
@@ -24,21 +26,28 @@ RUN apt-get install -y \
     libdb-dev \
     libdb++-dev \
     libevent-dev \
+    libgcrypt20-dev \
     libnewlib-arm-none-eabi \
+    libpcsclite-dev \
     libsdl2-dev \
     libsdl2-image-dev \
     libssl-dev \
+    libslirp-dev \
     libtool \
     libudev-dev \
     libusb-1.0-0-dev \
+    ninja-build \
     pkg-config \
-    protobuf-compiler \
-    qemu-user-static
+    qemu-user-static \
+    swig
 
 RUN pip install poetry flake8
 RUN wget https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
 RUN chmod +x rustup-init && ./rustup-init -y
 ENV PATH="/root/.cargo/bin:$PATH"
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v22.0/protoc-22.0-linux-x86_64.zip
+RUN unzip protoc-22.0-linux-x86_64.zip -d /usr/local
+RUN protoc --version
 
 ####################
 # Local build/test steps
@@ -48,7 +57,7 @@ ENV PATH="/root/.cargo/bin:$PATH"
 # as needed.
 # e.g.,
 # docker build -f ci/cirrus.Dockerfile -t hwi_test .
-# docker run -it --entrypoint /bin/bash hwi_tst
+# docker run -it --entrypoint /bin/bash hwi_test
 # cd test; poetry run ./run_tests.py --ledger --coldcard --interface=cli --device-only
 ####################
 
@@ -68,6 +77,7 @@ ENV PATH="/root/.cargo/bin:$PATH"
 #RUN cd test; ./setup_environment.sh --bitbox01
 #RUN cd test; ./setup_environment.sh --ledger
 #RUN cd test; ./setup_environment.sh --keepkey
+#RUN cd test; ./setup_environment.sh --jade
 #RUN cd test; ./setup_environment.sh --bitcoind
 #
 ## Once everything has been built, put rest of files in place

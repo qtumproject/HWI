@@ -27,7 +27,7 @@ class HardwareWalletClient(object):
     that hardware wallet subclasses should implement.
     """
 
-    def __init__(self, path: str, password: str, expert: bool, chain: Chain = Chain.MAIN) -> None:
+    def __init__(self, path: str, password: Optional[str], expert: bool, chain: Chain = Chain.MAIN) -> None:
         """
         :param path: Path to the device as returned by :func:`~hwilib.commands.enumerate`
         :param password: A password/passphrase to use with the device.
@@ -229,6 +229,15 @@ class HardwareWalletClient(object):
 
         :return: Whether the passphrase was successfully toggled
         :raises UnavailableActionError: if appropriate for the device.
+        """
+        raise NotImplementedError("The HardwareWalletClient base class "
+                                  "does not implement this method")
+
+    def can_sign_taproot(self) -> bool:
+        """
+        Whether the device has a version that can sign for Taproot inputs
+
+        :return: Whether Taproot is supported
         """
         raise NotImplementedError("The HardwareWalletClient base class "
                                   "does not implement this method")

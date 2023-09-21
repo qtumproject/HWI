@@ -61,7 +61,7 @@ def displayaddress_handler(args: argparse.Namespace, client: HardwareWalletClien
     return displayaddress(client, desc=args.desc, path=args.path, addr_type=args.addr_type)
 
 def enumerate_handler(args: argparse.Namespace) -> List[Dict[str, Any]]:
-    return enumerate(password=args.password, chain=args.chain)
+    return enumerate(password=args.password, expert=args.expert, chain=args.chain)
 
 def getmasterxpub_handler(args: argparse.Namespace, client: HardwareWalletClient) -> Dict[str, str]:
     return getmasterxpub(client, addrtype=args.addr_type, account=args.account)
@@ -141,7 +141,7 @@ def get_parser() -> HWIArgumentParser:
     parser = HWIArgumentParser(description='Hardware Wallet Interface, version {}.\nAccess and send commands to a hardware wallet device. Responses are in JSON format.'.format(__version__))
     parser.add_argument('--device-path', '-d', help='Specify the device path of the device to connect to')
     parser.add_argument('--device-type', '-t', help='Specify the type of device that will be connected. If `--device-path` not given, the first device of this type enumerated is used.')
-    parser.add_argument('--password', '-p', help='Device password if it has one (e.g. DigitalBitbox)', default='')
+    parser.add_argument('--password', '-p', help='Device password if it has one (e.g. DigitalBitbox)')
     parser.add_argument('--stdinpass', help='Enter the device password on the command line', action='store_true')
     parser.add_argument('--chain', help='Select chain to work with', type=Chain.argparse, choices=list(Chain), default=Chain.MAIN) # type: ignore
     parser.add_argument('--debug', help='Print debug statements', action='store_true')
