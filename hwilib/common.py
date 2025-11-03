@@ -8,6 +8,7 @@ import hashlib
 from enum import Enum
 
 from typing import Union
+from .ripemd160 import ripemd160
 
 
 class Chain(Enum):
@@ -64,16 +65,6 @@ def sha256(s: bytes) -> bytes:
     :return: The hash
     """
     return hashlib.new('sha256', s).digest()
-
-
-def ripemd160(s: bytes) -> bytes:
-    """
-    Perform a single RIPEMD160 hash.
-
-    :param s: Bytes to hash
-    :return: The hash
-    """
-    return hashlib.new('ripemd160', s).digest()
 
 
 def hash256(s: bytes) -> bytes:
